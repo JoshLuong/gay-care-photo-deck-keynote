@@ -131,7 +131,7 @@ on run argv
 
 					-- caption: original filename (without ext), directly under the actual (scaled) image
 					set captionBox to make new text item with properties {object text:capName}
-					set position of captionBox to {leftX, marginY + ((imgAreaH - newH) / 2) + newH + captionGap}
+					set position of captionBox to {leftX, marginY + imgAreaH + captionGap}
 					set width of captionBox to halfW
 					set height of captionBox to captionH
 					set size of object text of captionBox to captionFontSize
