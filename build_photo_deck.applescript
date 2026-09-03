@@ -27,9 +27,9 @@ on run argv
 		set outPosixPath to srcFolder & folderName & ".key"
 	end if
 
-	-- gather jpg/jpeg files, sorted alphabetically by filename
+	-- gather jpg/jpeg/tiff/png files, sorted alphabetically by filename
 	tell application "Finder"
-		set matchingFiles to sort (every file of folder folderAlias whose name extension is in {"jpg", "jpeg", "JPG", "JPEG"}) by name
+		set matchingFiles to sort (every file of folder folderAlias whose name extension is in {"jpg", "jpeg", "JPG", "JPEG", "tif", "tiff", "TIF", "TIFF", "png", "PNG"}) by name
 		set imageFiles to {}
 		repeat with f in matchingFiles
 			set end of imageFiles to (name of f)
@@ -37,8 +37,32 @@ on run argv
 	end tell
 
 	if (count of imageFiles) is 0 then
-		error "No .jpg/.jpeg files found in " & srcFolder
+		error "No image files found in " & srcFolder
 	end if
+
+	-- convert non-JPEG images to JPEG in a temp dir (quality 95)
+	set tmpDir to do shell script "mktemp -d"
+	set convertedFiles to {}
+	repeat with fName in imageFiles
+		set ext to ""
+		set dotPos to 0
+		repeat with c from (length of fName) to 1 by -1
+			if character c of fName is "." then
+				set dotPos to c
+				exit repeat
+			end if
+		end repeat
+		if dotPos > 0 then set ext to text (dotPos + 1) thru -1 of fName
+		set lext to do shell script "echo " & quoted form of ext & " | tr '[:upper:]' '[:lower:]'"
+		if lext is in {"tif", "tiff", "png"} then
+			set baseName to text 1 thru (dotPos - 1) of fName
+			set convertedName to baseName & ".jpg"
+			do shell script "sips -s format jpeg -s formatOptions 95 " & quoted form of (srcFolder & fName) & " --out " & quoted form of (tmpDir & "/" & convertedName)
+			set end of convertedFiles to {origName:fName, useName:convertedName, useDir:tmpDir & "/"}
+		else
+			set end of convertedFiles to {origName:fName, useName:fName, useDir:srcFolder}
+		end if
+	end repeat
 
 	-- layout constants (points)
 	set marginX to 40
@@ -65,20 +89,21 @@ on run argv
 		set rightX to marginX + halfW + gapX
 
 		set idx to 0
-		repeat with fName in imageFiles
+		repeat with entry in convertedFiles
 			set idx to idx + 1
-			set fullPath to srcFolder & fName
+			set fName to useName of entry
+			set fullPath to (useDir of entry) & fName
 
-			-- strip extension for the caption
-			set baseName to fName
+			-- use original filename (without ext) for caption
+			set capName to origName of entry
 			set dotPos to 0
-			repeat with c from (length of baseName) to 1 by -1
-				if character c of baseName is "." then
+			repeat with c from (length of capName) to 1 by -1
+				if character c of capName is "." then
 					set dotPos to c
 					exit repeat
 				end if
 			end repeat
-			if dotPos > 0 then set baseName to text 1 thru (dotPos - 1) of baseName
+			if dotPos > 0 then set capName to text 1 thru (dotPos - 1) of capName
 
 			tell newDoc
 				if idx is 1 then
@@ -101,8 +126,8 @@ on run argv
 					set height of imgObj to newH
 					set position of imgObj to {leftX, marginY + ((imgAreaH - newH) / 2)}
 
-					-- caption: filename, directly under the actual (scaled) image
-					set captionBox to make new text item with properties {object text:baseName}
+					-- caption: original filename (without ext), directly under the actual (scaled) image
+					set captionBox to make new text item with properties {object text:capName}
 					set position of captionBox to {leftX, marginY + ((imgAreaH - newH) / 2) + newH + captionGap}
 					set width of captionBox to halfW
 					set height of captionBox to captionH
@@ -120,5 +145,6 @@ on run argv
 		save newDoc in POSIX file outPosixPath
 	end tell
 
+	do shell script "rm -rf " & quoted form of tmpDir
 	return "Created " & idx & "-slide deck at " & outPosixPath
 end run
