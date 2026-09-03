@@ -141,16 +141,19 @@
     });
 
     function collectFiles(dirEntry) {
+      const imageExts = /\.(jpe?g|tiff?|png)$/i;
       return new Promise(resolve => {
         const reader = dirEntry.createReader();
-        const results = [];
+        const filePromises = [];
         function readBatch() {
           reader.readEntries(entries => {
-            if (!entries.length) return resolve(results);
-            const imageExts = /\.(jpe?g|tiff?|png)$/i;
+            if (!entries.length) {
+              Promise.all(filePromises).then(resolve);
+              return;
+            }
             entries.forEach(entry => {
               if (entry.isFile && imageExts.test(entry.name)) {
-                entry.file(f => results.push(f));
+                filePromises.push(new Promise(res => entry.file(res)));
               }
             });
             readBatch();
