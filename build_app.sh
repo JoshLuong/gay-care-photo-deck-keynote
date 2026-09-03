@@ -9,15 +9,26 @@ APP_OUT="$SCRIPT_DIR/dist/${APP_NAME}.app"
 APPLET_SCRIPT="$SCRIPT_DIR/PhotoDeckHelper.applescript"
 BUILD_SCRIPT="$SCRIPT_DIR/build_photo_deck.applescript"
 SERVER_BIN="$SCRIPT_DIR/dist/photodeck-server"
+VERSION_FILE="$SCRIPT_DIR/dist/version.txt"
 
 mkdir -p "$SCRIPT_DIR/dist"
+
+# Auto-increment version
+if [ -f "$VERSION_FILE" ]; then
+  VERSION=$(( $(cat "$VERSION_FILE") + 1 ))
+else
+  VERSION=1
+fi
+echo "$VERSION" > "$VERSION_FILE"
+ZIP_NAME="${APP_NAME}-v${VERSION}.app.zip"
 
 if [ ! -f "$SERVER_BIN" ]; then
   echo "Building server binary..."
   pkg "$SCRIPT_DIR/server.js" --targets node18-macos-arm64 --output "$SERVER_BIN"
 fi
 
-echo "Compiling applet..."
+echo "Compiling applet (v${VERSION})..."
+rm -rf "$APP_OUT"
 osacompile -o "$APP_OUT" "$APPLET_SCRIPT"
 
 echo "Copying resources into bundle..."
@@ -30,13 +41,14 @@ INFO_PLIST="$APP_OUT/Contents/Info.plist"
 
 /usr/libexec/PlistBuddy -c "Delete :CFBundleIdentifier" "$INFO_PLIST" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.joshluong.photodeck" "$INFO_PLIST"
-
-# Remove URL scheme — no longer needed
 /usr/libexec/PlistBuddy -c "Delete :CFBundleURLTypes" "$INFO_PLIST" 2>/dev/null || true
 
-echo "Zipping..."
+echo "Zipping as $ZIP_NAME..."
 cd "$SCRIPT_DIR/dist"
-rm -f "${APP_NAME}.app.zip"
-zip -r "${APP_NAME}.app.zip" "${APP_NAME}.app"
+rm -f "${APP_NAME}-v"*.app.zip
+zip -r "$ZIP_NAME" "${APP_NAME}.app"
 
-echo "Done: $SCRIPT_DIR/dist/${APP_NAME}.app.zip"
+# Write the current zip name so index.html can reference it
+echo "$ZIP_NAME" > "$SCRIPT_DIR/dist/latest.txt"
+
+echo "Done: $SCRIPT_DIR/dist/$ZIP_NAME"

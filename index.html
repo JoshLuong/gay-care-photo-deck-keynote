@@ -101,9 +101,15 @@
   <div id="status"></div>
 
   <footer>
-    First time? <a href="dist/PhotoDeck.app.zip">Download PhotoDeck.app</a> and drag it to Applications.<br>
-    Then: open Terminal (⌘+Space, type Terminal, Enter) → <a href="#" onclick="navigator.clipboard.writeText('xattr -cr /Applications/PhotoDeck.app && open /Applications/PhotoDeck.app'); this.textContent='Copied!'; return false;">copy this command</a> → ⌘V in Terminal → Enter.<br>
+    First time? Download <a id="app-link" href="#">PhotoDeck.app</a>, drag it to Applications, then
+    <a href="#" onclick="navigator.clipboard.writeText('xattr -cr /Applications/PhotoDeck.app && open /Applications/PhotoDeck.app'); this.textContent='Copied!'; return false;">copy this command</a> → ⌘V in Terminal → Enter.<br>
     After that, return here and drag your folder.
+    <script>
+      fetch('dist/latest.txt').then(r => r.text()).then(name => {
+        const link = document.getElementById('app-link');
+        link.href = 'dist/' + name.trim();
+      });
+    </script>
   </footer>
 
   <script>
