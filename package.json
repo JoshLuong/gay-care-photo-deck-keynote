@@ -1,0 +1,10 @@
+{
+  "name": "photodeck-server",
+  "version": "1.0.0",
+  "main": "server.js",
+  "bin": "server.js",
+  "pkg": {
+    "targets": ["node18-macos-arm64", "node18-macos-x64"],
+    "assets": []
+  }
+}
