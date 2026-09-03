@@ -42,7 +42,9 @@ on run argv
 
 	-- convert non-JPEG images to JPEG in a temp dir (quality 95)
 	set tmpDir to do shell script "mktemp -d"
-	set convertedFiles to {}
+	set origNames to {}
+	set useNames to {}
+	set useDirs to {}
 	repeat with fName in imageFiles
 		set ext to ""
 		set dotPos to 0
@@ -58,9 +60,13 @@ on run argv
 			set baseName to text 1 thru (dotPos - 1) of fName
 			set convertedName to baseName & ".jpg"
 			do shell script "sips -s format jpeg -s formatOptions 95 " & quoted form of (srcFolder & fName) & " --out " & quoted form of (tmpDir & "/" & convertedName)
-			set end of convertedFiles to {origName:fName, useName:convertedName, useDir:tmpDir & "/"}
+			set end of origNames to fName
+			set end of useNames to convertedName
+			set end of useDirs to tmpDir & "/"
 		else
-			set end of convertedFiles to {origName:fName, useName:fName, useDir:srcFolder}
+			set end of origNames to fName
+			set end of useNames to fName
+			set end of useDirs to srcFolder
 		end if
 	end repeat
 
@@ -89,13 +95,13 @@ on run argv
 		set rightX to marginX + halfW + gapX
 
 		set idx to 0
-		repeat with entry in convertedFiles
-			set idx to idx + 1
-			set fName to useName of entry
-			set fullPath to (useDir of entry) & fName
+		repeat with i from 1 to count of useNames
+			set idx to i
+			set fName to item i of useNames
+			set fullPath to (item i of useDirs) & fName
 
 			-- use original filename (without ext) for caption
-			set capName to origName of entry
+			set capName to item i of origNames
 			set dotPos to 0
 			repeat with c from (length of capName) to 1 by -1
 				if character c of capName is "." then
