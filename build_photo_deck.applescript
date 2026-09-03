@@ -12,7 +12,6 @@ on run argv
 
 	set srcFolder to item 1 of argv
 	if srcFolder does not end with "/" then set srcFolder to srcFolder & "/"
-	set folderAlias to POSIX file srcFolder as alias
 
 	-- derive folder name for the default output filename
 	set trimmedPath to text 1 thru -2 of srcFolder
@@ -27,14 +26,11 @@ on run argv
 		set outPosixPath to srcFolder & folderName & ".key"
 	end if
 
-	-- gather jpg/jpeg/tiff/png files, sorted alphabetically by filename
-	tell application "Finder"
-		set matchingFiles to sort (every file of folder folderAlias whose name extension is in {"jpg", "jpeg", "JPG", "JPEG", "tif", "tiff", "TIF", "TIFF", "png", "PNG"}) by name
-		set imageFiles to {}
-		repeat with f in matchingFiles
-			set end of imageFiles to (name of f)
-		end repeat
-	end tell
+	-- gather jpg/jpeg/tiff/png files via shell, sorted alphabetically
+	set fileListRaw to do shell script "ls " & quoted form of srcFolder & " | grep -iE '\\.(jpg|jpeg|tif|tiff|png)$' | sort"
+	set AppleScript's text item delimiters to linefeed
+	set imageFiles to text items of fileListRaw
+	set AppleScript's text item delimiters to ""
 
 	if (count of imageFiles) is 0 then
 		error "No image files found in " & srcFolder
