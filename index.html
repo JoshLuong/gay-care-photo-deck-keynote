@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Photo Deck</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background: #fff;
+      color: #000;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 48px;
+      padding: 48px 24px;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 8vw, 5rem);
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    #drop-zone {
+      width: min(480px, 100%);
+      aspect-ratio: 4/3;
+      border: 2px solid #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      cursor: default;
+      transition: background 0.15s;
+      user-select: none;
+    }
+
+    #drop-zone.over {
+      background: #000;
+      color: #fff;
+    }
+
+    #drop-zone .label {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    #drop-zone .sub {
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      opacity: 0.5;
+    }
+
+    #status {
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      min-height: 1.2em;
+      text-align: center;
+    }
+
+    #status.error { color: #c00; }
+
+    footer {
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      opacity: 0.35;
+      text-align: center;
+      line-height: 2;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+      border-bottom: 1px solid currentColor;
+    }
+
+    a:hover { opacity: 0.6; }
+  </style>
+</head>
+<body>
+
+  <h1>Photo Deck</h1>
+
+  <div id="drop-zone" aria-label="Drop photo folder here">
+    <span class="label">Drop folder here</span>
+    <span class="sub">JPEGs → Keynote deck</span>
+  </div>
+
+  <div id="status"></div>
+
+  <footer>
+    Requires <a id="download-link" href="dist/PhotoDeck.app.zip">PhotoDeck.app</a> — install once, then drag any folder.<br>
+    After downloading: unzip → drag to Applications → open once to register.
+  </footer>
+
+  <script>
+    const zone = document.getElementById('drop-zone');
+    const status = document.getElementById('status');
+
+    zone.addEventListener('dragover', e => {
+      e.preventDefault();
+      zone.classList.add('over');
+    });
+
+    zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('over');
+
+      const items = Array.from(e.dataTransfer.items || []);
+      const folderEntry = items
+        .map(i => i.webkitGetAsEntry && i.webkitGetAsEntry())
+        .find(entry => entry && entry.isDirectory);
+
+      if (!folderEntry) {
+        setStatus('Drop a folder, not individual files.', true);
+        return;
+      }
+
+      // webkitGetAsEntry gives us a relative name but not a full POSIX path.
+      // We get the real path via the File object's path property (Electron/local)
+      // or fall back to the DataTransfer file list.
+      let folderPath = null;
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0 && files[0].path) {
+        // Electron or local file:// — full path available
+        const fp = files[0].path;
+        // Walk up to the dropped folder
+        const parts = fp.split('/');
+        parts.pop();
+        folderPath = parts.join('/');
+      }
+
+      if (!folderPath) {
+        setStatus('Cannot read folder path in this browser. Open index.html locally.', true);
+        return;
+      }
+
+      launchApp(folderPath);
+    });
+
+    function launchApp(folderPath) {
+      setStatus('Building deck…');
+
+      const url = 'photodeck://build?folder=' + encodeURIComponent(folderPath);
+
+      // Try to trigger; if app not installed, nothing opens — we detect via timeout
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      iframe.src = url;
+
+      // Give macOS 2s to respond; if the app is installed it fires immediately
+      let launched = false;
+      window.addEventListener('blur', () => { launched = true; }, { once: true });
+
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        if (launched) {
+          setStatus('Deck building — check your Desktop when Keynote finishes.');
+        } else {
+          setStatus('PhotoDeck.app not found. Download and install it below.', true);
+        }
+      }, 2000);
+    }
+
+    function setStatus(msg, isError = false) {
+      status.textContent = msg;
+      status.className = isError ? 'error' : '';
+    }
+  </script>
+
+</body>
+</html>
