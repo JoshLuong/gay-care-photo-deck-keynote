@@ -147,11 +147,16 @@
         const filePromises = [];
         function readBatch() {
           reader.readEntries(entries => {
+            console.log('readEntries batch:', entries.length, entries.map(e => e.name));
             if (!entries.length) {
-              Promise.all(filePromises).then(resolve);
+              Promise.all(filePromises).then(files => {
+                console.log('collected files:', files.map(f => f.name));
+                resolve(files);
+              });
               return;
             }
             entries.forEach(entry => {
+              console.log('entry:', entry.name, entry.isFile, imageExts.test(entry.name));
               if (entry.isFile && imageExts.test(entry.name)) {
                 filePromises.push(new Promise(res => entry.file(res)));
               }
