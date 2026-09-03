@@ -27,8 +27,8 @@ on run argv
 	end if
 
 	-- gather jpg/jpeg/tiff/png files via shell, sorted alphabetically
-	set fileListRaw to do shell script "ls " & quoted form of srcFolder & " | grep -iE '\\.(jpg|jpeg|tif|tiff|png)$' | sort"
-	set AppleScript's text item delimiters to linefeed
+	set fileListRaw to do shell script "find " & quoted form of srcFolder & " -maxdepth 1 -type f | grep -iE '\\.(jpg|jpeg|tif|tiff|png)$' | xargs -I{} basename {} | sort"
+	set AppleScript's text item delimiters to return
 	set imageFiles to text items of fileListRaw
 	set AppleScript's text item delimiters to ""
 
@@ -118,6 +118,7 @@ on run argv
 				tell targetSlide
 					-- image: aspect-fit inside the left box, no cropping/stretching
 					set imgObj to make new image with properties {file:(fullPath as POSIX file)}
+					delay 0.3
 					set natW to width of imgObj
 					set natH to height of imgObj
 					set scaleFactor to halfW / natW
