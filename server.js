@@ -2,7 +2,6 @@ const http = require('http');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFile } = require('child_process');
 
 const PORT = 7890;
 
@@ -78,24 +77,49 @@ const server = http.createServer((req, res) => {
     }
 
     const scriptPath = path.join(path.dirname(process.execPath), '..', 'Resources', 'build_photo_deck.applescript');
+    const triggerFile = '/tmp/photodeck-trigger.txt';
+    const resultFile = '/tmp/photodeck-result.txt';
 
-    execFile('osascript', [scriptPath, tmpDir, outPath], (err, stdout, stderr) => {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+    // Clean up any stale result
+    try { fs.unlinkSync(resultFile); } catch {}
 
-      if (err) {
+    // Write trigger for the applet to pick up
+    fs.writeFileSync(triggerFile, tmpDir + '|' + outPath);
+
+    // Poll for result file (applet writes it when done)
+    let waited = 0;
+    const pollInterval = 500;
+    const maxWait = 120000;
+    const poll = setInterval(() => {
+      waited += pollInterval;
+      if (waited > maxWait) {
+        clearInterval(poll);
+        fs.rmSync(tmpDir, { recursive: true, force: true });
         res.writeHead(500);
-        res.end('Error: ' + (stderr || err.message));
+        res.end('Timed out waiting for PhotoDeck.app to build the deck.');
         return;
       }
+      try {
+        const result = fs.readFileSync(resultFile, 'utf8').trim();
+        if (!result.startsWith('done:')) return;
+        clearInterval(poll);
+        fs.unlinkSync(resultFile);
+        fs.rmSync(tmpDir, { recursive: true, force: true });
 
-      const keyData = fs.readFileSync(outPath);
-      res.writeHead(200, {
-        'Content-Type': 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="${folderName}.key"`,
-        'Content-Length': keyData.length,
-      });
-      res.end(keyData);
-    });
+        if (!fs.existsSync(outPath)) {
+          res.writeHead(500);
+          res.end('Deck file not found after build.');
+          return;
+        }
+        const keyData = fs.readFileSync(outPath);
+        res.writeHead(200, {
+          'Content-Type': 'application/octet-stream',
+          'Content-Disposition': `attachment; filename="${folderName}.key"`,
+          'Content-Length': keyData.length,
+        });
+        res.end(keyData);
+      } catch {}
+    }, pollInterval);
   });
 });
 
